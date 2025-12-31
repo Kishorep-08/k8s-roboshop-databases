@@ -1,0 +1,74 @@
+# Normal service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: roboshop
+spec:
+  selector:
+    project: roboshop
+    environment: dev
+    component: mongodb
+  ports:
+    - protocol: TCP
+      port: 3306    # port on which service is exposed
+      targetPort: 3306   # port on which mongodb container is listening
+
+---
+# Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-headless
+  namespace: roboshop
+spec:
+  clusterIP: None
+  selector:
+    project: roboshop
+    environment: dev
+    component: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+
+---
+# StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: roboshop
+spec:
+  selector:
+    matchLabels:
+      project: roboshop
+      environment: dev
+      component: mysql 
+  serviceName: "mysql-headless"   #This should be headless service name
+  replicas: 3 # by default is 1
+  template:
+    metadata:
+      labels:
+        project: roboshop
+        environment: dev
+        component: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: kishore8856/mysql:v2
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql
+          mountPath: /var/lib/mysql
+  # This is PVC
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "roboshop-ebs"
+      resources:
+        requests:
+          storage: 1Gi
