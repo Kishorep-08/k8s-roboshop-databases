@@ -1,0 +1,90 @@
+# Normal service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: roboshop
+spec:
+  selector:
+    project: roboshop
+    environment: dev
+    component: mongodb
+  ports:
+    - protocol: TCP
+      port: 5762    # port on which service is exposed
+      targetPort: 5762   # port on which container is listening
+
+---
+# Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-headless
+  namespace: roboshop
+spec:
+  clusterIP: None
+  selector:
+    project: roboshop
+    environment: dev
+    component: rabbitmq
+  ports:
+    - protocol: TCP
+      port: 5762
+      targetPort: 5762
+
+---
+# StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rabbitmq
+  namespace: roboshop
+spec:
+  selector:
+    matchLabels:
+      project: roboshop
+      environment: dev
+      component: rabbitmq 
+  serviceName: "rabbitmq-headless"   #This should be headless service name
+  replicas: 3 # by default is 1
+  template:
+    metadata:
+      labels:
+        project: roboshop
+        environment: dev
+        component: rabbitmq
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3
+        ports:
+        - containerPort: 5762
+        envFrom:
+          - secretRef:
+              name: rabbitmq-creds 
+        imagePullPolicy: Always  # always pulls image from repo. This ensures latest image is used
+          # Readiness probe is to check if container is ready to serve traffic. If this fails, pod is removed from service endpoints
+        readinessProbe:
+          tcpSocket:
+            port: 5672
+          initialDelaySeconds: 10   # Pod created, waits for 10 secs, send TCP connection to port 6379
+          periodSeconds: 5          # checks readiness every 5 seconds
+          # Liveness probe is to check if pod is alive. If this fails, pod is restarted
+        livenessProbe:
+          tcpSocket:    # check via TCP socket. Just checks if container is listening on specified port
+            port: 5672
+          initialDelaySeconds: 20   # time to wait before performing first health check
+          periodSeconds: 5         # frequency of health checks. Here every 5 seconds
+        volumeMounts:
+        - name: rabbitmq
+          mountPath: /var/lib/rabbitmq
+  # This is PVC
+  volumeClaimTemplates:
+  - metadata:
+      name: rabbitmq
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: "roboshop-ebs"
+      resources:
+        requests:
+          storage: 1Gi
