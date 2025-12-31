@@ -26,9 +26,6 @@ spec:
         - name: frontend
           image: kishore8856/frontend:v2
           imagePullPolicy: Always
-          envFrom:
-            - configMapRef:
-                name: frontend
           readinessProbe:
             httpGet:
               path: /
