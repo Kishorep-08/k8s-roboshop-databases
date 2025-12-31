@@ -47,12 +47,12 @@ spec:
               cpu: "100m"
               memory: "150Mi"
           volumeMounts:
-            - name: frontend
+            - name: frontend-conf
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
 
       volumes:
-        - name: frontend
+        - name: frontend-conf
           configMap:
             name: frontend-cm
 ---
